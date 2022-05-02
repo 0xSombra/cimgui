@@ -1,48 +1,59 @@
 name: Build
 
 on:
-  push: {}
-  pull_request: {}
-  schedule:
-    - cron:  '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      CustomCheckout:
+        type: boolean
+        description: build using custom commit/branch
+        default: false
+      Checkout:
+        description: imgui branch or commit id
+        default: docking
+        required: false
+      BuildArch:
+        type: choice
+        description: Build arch
+        default: x64
+        required: true
+        options:
+        - Win32
+        - x64
+      BuildConfig:
+        type: choice
+        description: Build config
+        default: Release
+        required: true
+        options:
+        - Debug
+        - Release
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v1
 
     - name: Install Dependencies
       shell: bash
-      env:
-        GITHUB_OS: ${{ matrix.os }}
       run: |
-        if [ "$GITHUB_OS" == "macOS-latest" ];
-        then
-          brew install luajit
-        elif [ "$GITHUB_OS" == "ubuntu-latest" ];
-        then
-          sudo apt-get install -y luajit
-        elif [ "$GITHUB_OS" == "windows-latest" ];
-        then
-          vcpkg install luajit
-        fi
+        vcpkg install luajit
 
     - name: Download Submodules
       run: |
         git submodule update --init --recursive
-      if: github.event_name != 'schedule'
+      if: ${{ github.event.inputs.CustomCheckout == 'false' }}
 
     - name: Download Latest ImGui
       shell: bash
       run: |
         rm -rf imgui
         git clone https://github.com/ocornut/imgui.git
-      if: github.event_name == 'schedule'
+        cd imgui
+        git checkout "${{ github.event.inputs.Checkout }}"
+        cd ..
+      if: ${{ github.event.inputs.CustomCheckout == 'true' }}
 
     - name: Generate Bindings
       shell: bash
@@ -55,22 +66,34 @@ jobs:
       run: |
         mkdir cmake-build
         cd cmake-build
-        cmake -DCIMGUI_TEST=1 ..
+        cmake -DCIMGUI_TEST=1 -DCMAKE_GENERATOR_PLATFORM=${{ github.event.inputs.BuildArch }} ..
 
     - name: Build
       working-directory: cmake-build
       run: |
-        cmake --build .
+        cmake --build . --config ${{ github.event.inputs.BuildConfig }}
 
     - name: Test
       shell: bash
-      env:
-        GITHUB_OS: ${{ matrix.os }}
       working-directory: cmake-build
       run: |
-        if [ "$GITHUB_OS" == "windows-latest" ];
-        then
-          ./Debug/cimgui_test.exe
-        else
-          ./cimgui_test
-        fi
+        ./${{ github.event.inputs.BuildConfig }}/cimgui_test.exe
+
+    - name: Prepare artifacts
+      shell: bash
+      run: |
+        mkdir artifacts
+        rm -rf ./imgui/.git
+        cd artifacts
+        cp ../cmake-build/${{ github.event.inputs.BuildConfig }}/* .
+        rm cimgui_test.exe
+        cp -r ../imgui/ .
+        mkdir "generator_output"
+        cp ../generator/output/* ./generator_output
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-${{ github.event.inputs.BuildArch }}-${{ github.event.inputs.BuildConfig }}
+        path: artifacts
+        if-no-files-found: error
