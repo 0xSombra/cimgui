@@ -5,8 +5,12 @@ on:
     inputs:
       CustomCheckout:
         type: boolean
-        description: build using custom commit/branch
+        description: build using custom repo/commit/branch
         default: false
+      Repository:
+        description: imgui repository
+        default: 'https://github.com/ocornut/imgui.git'
+        required: true
       Checkout:
         description: imgui branch or commit id
         default: docking
@@ -49,9 +53,9 @@ jobs:
       shell: bash
       run: |
         rm -rf imgui
-        git clone https://github.com/ocornut/imgui.git
+        git clone "${{ github.event.inputs.Repository }}"
         cd imgui
-        git checkout "${{ github.event.inputs.Checkout }}"
+        [ ! -z "${{ github.event.inputs.Checkout }}" ] && git checkout "${{ github.event.inputs.Checkout }}"
         cd ..
       if: ${{ github.event.inputs.CustomCheckout == 'true' }}
 
