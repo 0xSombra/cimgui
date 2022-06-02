@@ -215,4 +215,6 @@ save_data("./output/typedefs_dict.json",json.encode(parser1.typedefs_dict))
 -------------------copy C files to repo root
 copyfile("./output/"..modulename..".h", "../"..modulename..".h")
 copyfile("./output/"..modulename..".cpp", "../"..modulename..".cpp")
+os.remove("./output/"..modulename..".h")
+os.remove("./output/"..modulename..".cpp")
 print"all done!!"
