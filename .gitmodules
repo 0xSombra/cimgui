@@ -1,4 +1,12 @@
-[submodule "imgui"]
-	path = imgui
-	url = https://github.com/ocornut/imgui.git
+[submodule "cimguizmo/imguizmo"]
+	path = cimguizmo/imguizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo
 	branch = master
+[submodule "cimplot/implot"]
+	path = cimplot/implot
+	url = https://github.com/epezent/implot
+	branch = master
+[submodule "cimgui/imgui"]
+	path = cimgui/imgui
+	url = https://github.com/ocornut/imgui
+	branch = docking
