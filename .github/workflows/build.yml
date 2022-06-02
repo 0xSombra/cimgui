@@ -3,18 +3,6 @@ name: Build
 on:
   workflow_dispatch:
     inputs:
-      CustomCheckout:
-        type: boolean
-        description: build using custom repo/commit/branch
-        default: false
-      Repository:
-        description: imgui repository
-        default: 'https://github.com/ocornut/imgui.git'
-        required: true
-      Checkout:
-        description: imgui branch or commit id
-        default: docking
-        required: false
       BuildArch:
         type: choice
         description: Build arch
@@ -31,6 +19,26 @@ on:
         options:
         - Debug
         - Release
+      CustomImGui:
+        type: boolean
+        description: Build using custom ImGui
+        default: false
+      ImGuiRepository:
+        description: ImGui repository
+        default: 'https://github.com/ocornut/imgui'
+        required: true
+      ImGuiCheckout:
+        description: ImGui branch or commit id
+        default: docking
+        required: false
+      BuildCImPlot:
+        type: boolean
+        description: Build CImPlot
+        default: false
+      BuildCImGuizmo:
+        type: boolean
+        description: Build CImGuizmo
+        default: false
 
 jobs:
   build:
@@ -39,27 +47,65 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
+    - name: Cache Dependencies
+      id: cache_dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          C:/vcpkg/packages/luajit_x86-windows/tools
+          C:/vcpkg/packages/luajit_x86-windows/bin
+        key: ${{ runner.os }}-dependencies
+
     - name: Install Dependencies
+      if: steps.cache_dependencies.outputs.cache-hit != 'true'
       shell: bash
       run: |
         vcpkg install luajit
 
     - name: Download Submodules
-      run: |
-        git submodule update --init --recursive
-      if: ${{ github.event.inputs.CustomCheckout == 'false' }}
+      shell: bash
+      run: git submodule update --init --recursive
 
-    - name: Download Latest ImGui
+    - name: Download Custom ImGui
+      if: ${{ github.event.inputs.CustomImGui == 'true' }}
+      working-directory: cimgui
       shell: bash
       run: |
         rm -rf imgui
-        git clone "${{ github.event.inputs.Repository }}"
+        git clone "${{ github.event.inputs.ImGuiRepository }}" imgui
         cd imgui
-        [ ! -z "${{ github.event.inputs.Checkout }}" ] && git checkout "${{ github.event.inputs.Checkout }}"
-        cd ..
-      if: ${{ github.event.inputs.CustomCheckout == 'true' }}
+        echo && [ ! -z "${{ github.event.inputs.ImGuiCheckout }}" ] && git checkout "${{ github.event.inputs.ImGuiCheckout }}"
+    
+    - name: Update ImPlot
+      if: ${{ github.event.inputs.BuildCImPlot == 'true' }}
+      working-directory: cimplot/implot
+      shell: bash
+      run: git pull origin master
 
-    - name: Generate Bindings
+    - name: Update ImGuizmo
+      if: ${{ github.event.inputs.BuildCImGuizmo == 'true' }}
+      working-directory: cimguizmo/imguizmo
+      shell: bash
+      run: git pull origin master
+
+    - name: Generate Bindings - cimgui
+      working-directory: cimgui
+      shell: bash
+      run: |
+        export PATH=$PATH:/C/vcpkg/packages/luajit_x86-windows/tools/:/C/vcpkg/packages/luajit_x86-windows/bin/
+        cd ./generator
+        bash ./generator.sh
+
+    - name: Generate Bindings - cimplot
+      working-directory: cimplot
+      shell: bash
+      run: |
+        export PATH=$PATH:/C/vcpkg/packages/luajit_x86-windows/tools/:/C/vcpkg/packages/luajit_x86-windows/bin/
+        cd ./generator
+        bash ./generator.sh
+
+    - name: Generate Bindings - cimguizmo
+      working-directory: cimguizmo
       shell: bash
       run: |
         export PATH=$PATH:/C/vcpkg/packages/luajit_x86-windows/tools/:/C/vcpkg/packages/luajit_x86-windows/bin/
@@ -67,33 +113,62 @@ jobs:
         bash ./generator.sh
 
     - name: CMake
+      shell: bash
       run: |
         mkdir cmake-build
         cd cmake-build
-        cmake -DCIMGUI_TEST=1 -DCMAKE_GENERATOR_PLATFORM=${{ github.event.inputs.BuildArch }} ..
+        build_cimplot=$(if [ "${{ github.event.inputs.BuildCImPlot }}" = 'true' ]; then echo "-DBUILD_CIMPLOT=1"; else echo ""; fi)
+        build_cimguizmo=$(if [ "${{ github.event.inputs.BuildCImGuizmo }}" = 'true' ]; then echo "-DBUILD_CIMGUIZMO=1"; else echo ""; fi)
+        cmake $build_cimplot $build_cimguizmo -DCMAKE_GENERATOR_PLATFORM=${{ github.event.inputs.BuildArch }} ..
 
     - name: Build
       working-directory: cmake-build
+      shell: bash
       run: |
         cmake --build . --config ${{ github.event.inputs.BuildConfig }}
 
-    - name: Test
-      shell: bash
-      working-directory: cmake-build
-      run: |
-        ./${{ github.event.inputs.BuildConfig }}/cimgui_test.exe
-
-    - name: Prepare artifacts
+    - name: Prepare artifacts - imgui
       shell: bash
       run: |
         mkdir artifacts
-        rm -rf ./imgui/.git
         cd artifacts
-        cp ../cmake-build/${{ github.event.inputs.BuildConfig }}/* .
-        rm cimgui_test.exe
-        cp -r ../imgui/ .
-        mkdir "generator_output"
-        cp ../generator/output/* ./generator_output
+        rm -rf ../cimgui/imgui/.git
+        cp -r ../cimgui/imgui/ .
+
+    - name: Prepare artifacts - cimgui
+      working-directory: artifacts
+      shell: bash
+      run: |
+        mkdir cimgui
+        cd cimgui
+        cp ../../cmake-build/cimgui/${{ github.event.inputs.BuildConfig }}/cimgui.* .
+        cp ../../cimgui/cimgui.* .
+        mkdir generator_output
+        cp ../../cimgui/generator/output/* ./generator_output
+
+    - name: Prepare artifacts - cimplot
+      if: ${{ github.event.inputs.BuildCImPlot == 'true' }}
+      working-directory: artifacts
+      shell: bash
+      run: |
+        mkdir cimplot
+        cd cimplot
+        cp ../../cmake-build/cimplot/${{ github.event.inputs.BuildConfig }}/cimplot.* .
+        cp ../../cimplot/cimplot.* .
+        mkdir generator_output
+        cp ../../cimplot/generator/output/* ./generator_output
+
+    - name: Prepare artifacts - cimguizmo
+      if: ${{ github.event.inputs.BuildCImGuizmo == 'true' }}
+      working-directory: artifacts
+      shell: bash
+      run: |
+        mkdir cimguizmo
+        cd cimguizmo
+        cp ../../cmake-build/cimguizmo/${{ github.event.inputs.BuildConfig }}/cimguizmo.* .
+        cp ../../cimguizmo/cimguizmo.* .
+        mkdir generator_output
+        cp ../../cimguizmo/generator/output/* ./generator_output
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
