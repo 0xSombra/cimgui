@@ -52,15 +52,15 @@ jobs:
       uses: actions/cache@v3
       with:
         path: |
-          C:/vcpkg/packages/luajit_x86-windows/tools
-          C:/vcpkg/packages/luajit_x86-windows/bin
+          C:/vcpkg/installed/x64-windows/tools/luajit
+          C:/vcpkg/installed/x64-windows/bin
         key: ${{ runner.os }}-dependencies
 
     - name: Install Dependencies
       if: steps.cache_dependencies.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        vcpkg install luajit
+        vcpkg install luajit:x64-windows
 
     - name: Download Submodules
       shell: bash
@@ -92,7 +92,7 @@ jobs:
       working-directory: cimgui
       shell: bash
       run: |
-        export PATH=$PATH:/C/vcpkg/packages/luajit_x86-windows/tools/:/C/vcpkg/packages/luajit_x86-windows/bin/
+        export PATH=$PATH:/c/vcpkg/installed/x64-windows/tools/luajit/:/c/vcpkg/installed/x64-windows/bin/
         cd ./generator
         bash ./generator.sh
 
@@ -100,7 +100,7 @@ jobs:
       working-directory: cimplot
       shell: bash
       run: |
-        export PATH=$PATH:/C/vcpkg/packages/luajit_x86-windows/tools/:/C/vcpkg/packages/luajit_x86-windows/bin/
+        export PATH=$PATH:/c/vcpkg/installed/x64-windows/tools/luajit/:/c/vcpkg/installed/x64-windows/bin/
         cd ./generator
         bash ./generator.sh
 
@@ -108,7 +108,7 @@ jobs:
       working-directory: cimguizmo
       shell: bash
       run: |
-        export PATH=$PATH:/C/vcpkg/packages/luajit_x86-windows/tools/:/C/vcpkg/packages/luajit_x86-windows/bin/
+        export PATH=$PATH:/c/vcpkg/installed/x64-windows/tools/luajit/:/c/vcpkg/installed/x64-windows/bin/
         cd ./generator
         bash ./generator.sh
 
