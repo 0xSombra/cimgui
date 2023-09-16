@@ -68,6 +68,11 @@ CIMGUI_API void ImVector_ImWchar_UnInit(ImVector_ImWchar* p)
 	p->~ImVector<ImWchar>();
 }
 
+CIMGUI_API ImGuiID ImGuiContext_GetHoveredIdPreviousFrame()
+{
+    return ImGui::GetCurrentContext()->HoveredIdPreviousFrame;
+}
+
 
 #ifdef IMGUI_HAS_DOCK
 

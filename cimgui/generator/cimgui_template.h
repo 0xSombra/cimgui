@@ -55,6 +55,8 @@ CIMGUI_API float igGET_FLT_MAX(void);
 //for getting FLT_MIN in bindings
 CIMGUI_API float igGET_FLT_MIN(void);
 
+CIMGUI_API ImGuiID ImGuiContext_GetHoveredIdPreviousFrame();
+
 
 CIMGUI_API ImVector_ImWchar* ImVector_ImWchar_create(void);
 CIMGUI_API void ImVector_ImWchar_destroy(ImVector_ImWchar* self);
