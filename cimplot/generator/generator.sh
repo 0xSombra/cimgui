@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/bin/bash
 
 # this script must be executed in this directory
 # all the output goes to generator/output folder
